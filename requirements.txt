@@ -1,0 +1,14 @@
+llama_index
+langchain
+langchain-community
+langchainhub 
+langchain-openai 
+chromadb
+bs4 
+python-dotenv
+fastapi
+uvicorn
+openai
+redis
+pypdf
+python-multipart
