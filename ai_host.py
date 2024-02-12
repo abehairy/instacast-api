@@ -33,11 +33,10 @@ def chat(system_prompt, session_id, message):
         ]
     )
 
-    message_history = RedisChatMessageHistory(
-        url=REDIS_URL, session_id=session_id)
+    message_history = RedisChatMessageHistory(session_id,
+                                              url=REDIS_URL)
     memory = ConversationBufferMemory(
-        memory_key="chat_history", memory=ConversationBufferMemory(
-            input_key="human_input", chat_memory=message_history), return_messages=True)
+        memory_key="chat_history", chat_memory=message_history, return_messages=True)
     llm = ChatOpenAI()
 
     chat_llm_chain = LLMChain(
