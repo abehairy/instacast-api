@@ -7,13 +7,13 @@ import json
 openai_api_key = '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'
 
 
-def compile_audio_with_intro(podcast_id):
-    folder_path = f'audio_files/{podcast_id}'
+def compile_audio_with_intro(session_id):
+    folder_path = f'audio_files/{session_id}'
     output_file = f'{folder_path}/final_compilation.mp3'
     background_music_path = 'audio_sample/intro_background.mp3'  # Adjust as necessary
     # List audio files sorted by creation date
     audio_files = [os.path.join(folder_path, f)
-                   for f in os.listdir(folder_path) if f.endswith('.mp3') or f.endswith('.webm')]
+                   for f in os.listdir(folder_path) if f.endswith('.mp3') or f.endswith('.webm') or f.endswith('mp4') or f.endswith('wav')]
     audio_files.sort(key=lambda x: os.path.getctime(x))
 
     # Load the background music and reduce its volume
@@ -39,7 +39,7 @@ def compile_audio_with_intro(podcast_id):
     print(f"Compilation complete. File saved as: {output_file}")
 
 
-async def make_intro(intro_text, podcast_id, voice='alloy'):
+async def make_intro(intro_text, session_id, voice='alloy'):
     intro_voice = await generate_speech(
         intro_text, voice)
     # Load the audio files
@@ -71,7 +71,7 @@ async def make_intro(intro_text, podcast_id, voice='alloy'):
 
     # Export the mixed audio file
     mixed_clip.export(
-        f"audio_files/{podcast_id}/intro.mp3", format="mp3")
+        f"audio_files/{session_id}/intro.mp3", format="mp3")
 
 
 async def transcribe_audio(audio_file_path, model='whisper-1'):
@@ -125,5 +125,5 @@ async def generate_speech(text, voice='alloy', output_file='audio_files/output.m
 # To run the async function outside of an async environment
 if __name__ == "__main__":
     # Replace with your folder path
-    podcast_id = '51c13bd2-73af-4f37-96c5-e62fcc3afedf'
-    compile_audio_with_intro(podcast_id)
+    session_id = '51c13bd2-73af-4f37-96c5-e62fcc3afedf'
+    compile_audio_with_intro(session_id)

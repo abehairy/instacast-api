@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-import innerview_ai
+import ai_host
 import studio
 import uuid
 import os
@@ -30,51 +30,69 @@ app.add_middleware(
 AUDIO_FILE_DIR = "audio_files"
 
 
+@app.get("/api/podcast/list")
+async def podcast_list():
+    from db import podcasts
+
+    return podcasts
+
+
 @app.post("/api/podcast/speak")
-async def podcast_speak(podcast_id: str, file: UploadFile = File(...)):
-    file_location = f"{AUDIO_FILE_DIR}/{podcast_id}/{uuid.uuid4()}-{file.filename}"
+async def podcast_speak(session_id: str, podcast_id: str, file: UploadFile = File(...)):
+    file_location = f"{AUDIO_FILE_DIR}/{session_id}/{uuid.uuid4()}-{file.filename}"
     os.makedirs(os.path.dirname(file_location), exist_ok=True)
 
     with open(file_location, "wb+") as file_object:
         shutil.copyfileobj(file.file, file_object)
 
     text = await studio.transcribe_audio(file_location)
-    print(text)
-    response = innerview_ai.chat(text)
-    print(response)
+
+    from db import podcasts
+    podcast = next(
+        (podcast for podcast in podcasts if podcast['id'] == podcast_id), None)
+    system_prompt = podcast['systemPrompt']
+    host = podcast['host']
+
+    response = ai_host.chat(system_prompt, session_id, text)
+    # @TODO: Fix this:  Truncate the response to the first 4096 characters if it's longer
+    truncated_response = response[:4096] if len(response) > 4096 else response
+
     file_uuid = uuid.uuid4()
-    voice = await studio.generate_speech(response, 'alloy', f'{AUDIO_FILE_DIR}/{podcast_id}/{file_uuid}.mp3')
+    voice = await studio.generate_speech(truncated_response, host or "alloy", f'{AUDIO_FILE_DIR}/{session_id}/{file_uuid}.mp3')
 
     return {"text": response, "voice_id": file_uuid}
 
 
 @app.get("/api/podcast/test")
 async def podcast_test():
-    return {'podcast_id': 'hello world'}
+    return {'session_id': 'hello world'}
 
 
 @app.get("/api/podcast/start")
-async def podcast_start():
-    podcast_id = uuid.uuid4()
+async def podcast_start(podcast_id):
+    session_id = uuid.uuid4()
     os.makedirs(os.path.dirname(
-        f'{AUDIO_FILE_DIR}/{podcast_id}/fake.test'), exist_ok=True)
+        f'{AUDIO_FILE_DIR}/{session_id}/fake.test'), exist_ok=True)
 
-    text = 'Hi and welcome to our show where we do a delve deep inside your life and take a deep look on how things can become as part of a bigger humanity condition'
-    intro = await studio.make_intro(text, podcast_id)
+    from db import podcasts
+    podcast = next(
+        (podcast for podcast in podcasts if podcast['id'] == podcast_id), None)
+    text = podcast['introPrompt']
 
-    return {"podcast_id": podcast_id, "text": text, "voice_id": 'intro'}
+    intro = await studio.make_intro(text, session_id)
+
+    return {"session_id": session_id, "text": text, "voice_id": 'intro'}
 
 
 @app.get("/api/podcast/save")
-async def podcast_save(podcast_id):
-    studio.compile_audio_with_intro(podcast_id)
-    return {"podcast_id": podcast_id, "voice_id": 'final_compliation'}
+async def podcast_save(session_id):
+    studio.compile_audio_with_intro(session_id)
+    return {"session_id": session_id, "voice_id": 'final_compliation'}
 
 
 @app.get('/api/podcast/file')
-async def file(podcast_id: str, uuid: str):
-    # Construct the file path using the provided UUID
-    file_path = f"{AUDIO_FILE_DIR}/{podcast_id}/{uuid}.mp3"
+async def file(session_id: str, uuid: str):
+    file_path = f"{AUDIO_FILE_DIR}/{session_id}/{uuid}.mp3"
 
     try:
         # Attempt to return the file response

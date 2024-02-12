@@ -1,0 +1,27 @@
+# InstaCast.Live API
+
+The InstaCast.Live API is the backend service that powers the InstaCast.Live platform, a place for sharing and broadcasting podcasts with an AI host. This API handles podcast data management, audio file processing, and integration with AI services for transcription and voice generation.
+
+## Features
+
+- Podcast creation and management
+- Audio file upload and storage
+- Transcription of podcasts
+- AI-generated voice synthesis for podcasts
+- Compilation of podcast audio with intros and outros
+
+## Getting Started
+
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
+
+### Prerequisites
+
+What things you need to install the software and how to install them:
+
+- Python 3.8 or higher
+- FFmpeg for audio file processing
+
+For Ubuntu/Debian:
+```bash
+sudo apt update
+sudo apt install ffmpeg
