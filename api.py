@@ -30,7 +30,7 @@ app.add_middleware(
 AUDIO_FILE_DIR = "audio_files"
 
 
-@app.post("/podcast/speak")
+@app.post("api/podcast/speak")
 async def podcast_speak(podcast_id: str, file: UploadFile = File(...)):
     file_location = f"{AUDIO_FILE_DIR}/{podcast_id}/{uuid.uuid4()}-{file.filename}"
     os.makedirs(os.path.dirname(file_location), exist_ok=True)
@@ -48,7 +48,7 @@ async def podcast_speak(podcast_id: str, file: UploadFile = File(...)):
     return {"text": response, "voice_id": file_uuid}
 
 
-@app.get("/podcast/start")
+@app.get("api/podcast/start")
 async def podcast_start():
     podcast_id = uuid.uuid4()
     os.makedirs(os.path.dirname(
@@ -60,13 +60,13 @@ async def podcast_start():
     return {"podcast_id": podcast_id, "text": text, "voice_id": 'intro'}
 
 
-@app.get("/podcast/save")
+@app.get("api/podcast/save")
 async def podcast_save(podcast_id):
     studio.compile_audio_with_intro(podcast_id)
     return {"podcast_id": podcast_id, "voice_id": 'final_compliation'}
 
 
-@app.get('/podcast/file')
+@app.get('api/podcast/file')
 async def file(podcast_id: str, uuid: str):
     # Construct the file path using the provided UUID
     file_path = f"{AUDIO_FILE_DIR}/{podcast_id}/{uuid}.mp3"
