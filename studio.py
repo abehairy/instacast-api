@@ -10,7 +10,7 @@ openai_api_key = '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'
 def compile_audio_with_intro(podcast_id):
     folder_path = f'audio_files/{podcast_id}'
     output_file = f'{folder_path}/final_compilation.mp3'
-    background_music_path = 'audio_files/intro_background.mp3'  # Adjust as necessary
+    background_music_path = 'audio_sample/intro_background.mp3'  # Adjust as necessary
     # List audio files sorted by creation date
     audio_files = [os.path.join(folder_path, f)
                    for f in os.listdir(folder_path) if f.endswith('.mp3') or f.endswith('.webm')]
@@ -47,7 +47,7 @@ async def make_intro(intro_text, podcast_id, voice='alloy'):
     voice_clip = AudioSegment.from_file(intro_voice)
     print(voice_clip)
     background_music = AudioSegment.from_file(
-        "audio_files/intro_background.mp3")
+        "audio_sample/intro_background.mp3")
 
     # Reduce the volume of the background music
     background_music = background_music - 10  # Decrease volume by 20 dB
