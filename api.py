@@ -37,6 +37,14 @@ async def podcast_list():
     return podcasts
 
 
+@app.get("/api/podcast/details")
+async def podcast_list(podcast_id: str,):
+    from db import podcasts
+    podcast = next(
+        (podcast for podcast in podcasts if podcast['id'] == podcast_id), None)
+    return podcast
+
+
 @app.post("/api/podcast/speak")
 async def podcast_speak(session_id: str, podcast_id: str, file: UploadFile = File(...)):
     file_location = f"{AUDIO_FILE_DIR}/{session_id}/{uuid.uuid4()}-{file.filename}"
