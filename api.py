@@ -1,16 +1,24 @@
 
 
+import os
+import uuid
+import studio
+import ai_host
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
 from fastapi import UploadFile, File
 import shutil
 from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Header
+from jose import jwt, JWTError
+from typing import Optional
+import httpx
+from supabase import create_client
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-import ai_host
-import studio
-import uuid
-import os
+url: str = "https://ksuzseqojigqoxqhzlnt.supabase.co"
+key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzdXpzZXFvamlncW94cWh6bG50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgxNzA0MDgsImV4cCI6MjAyMzc0NjQwOH0.nF2--mvungU8684wKso9V_tQ3locm8WaYRIZesXKbhs"
+supabase_client = create_client(url, key)
 
 app = FastAPI()
 
@@ -28,6 +36,20 @@ app.add_middleware(
 
 # Ensure this directory exists and contains your audio files
 AUDIO_FILE_DIR = "audio_files"
+
+
+async def get_current_user(token: str = Header(...)):
+    try:
+        # You need to replace 'your-supabase-secret' with your actual secret key
+        # or fetch Supabase's public keys to verify the JWT properly
+        payload = jwt.decode(
+            token, "fW4WH3aIZLdXOnUy/880/c51rnM11R0c2IrC5LsboFpiIKZSGaTg38pC5cGlspCtcN/hR/Dev3IUx2uNuRd3OQ==", algorithms=["HS256"])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=400, detail="Invalid JWT token")
+        return user_id
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Invalid JWT token")
 
 
 @app.get("/api/podcast/list")
@@ -73,7 +95,9 @@ async def podcast_speak(session_id: str, podcast_id: str, file: UploadFile = Fil
 
 @app.get("/api/podcast/test")
 async def podcast_test():
-    return {'session_id': 'hello world'}
+    query = supabase_client.table("podcasts").select("*").execute()
+
+    return {'session_id': query}
 
 
 @app.get("/api/podcast/start")

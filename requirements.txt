@@ -12,3 +12,7 @@ openai
 redis
 pypdf
 python-multipart
+python-jose
+httpx
+supabase
+pydub
