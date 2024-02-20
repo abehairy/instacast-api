@@ -1,5 +1,7 @@
 
 
+from datetime import datetime
+from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.etree import ElementTree as ET
 from fastapi.responses import Response
 from fastapi import UploadFile, File
@@ -114,44 +116,43 @@ async def file(session_id: str, uuid: str):
 
 @app.get("/api/rss", response_class=Response, include_in_schema=False)
 async def generate_rss_feed():
-    # Example function to fetch podcasts data - implement according to your storage
+    rss = Element("rss", attrib={
+        "version": "2.0",
+        "xmlns:itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd",
+    })
 
-    rss = ET.Element("rss", version="2.0")
-    channel = ET.SubElement(rss, "channel")
+    channel = SubElement(rss, "channel")
+    SubElement(channel, "title").text = "The InnerView Podcast"
+    SubElement(channel, "link").text = "https://instacast.live/"
+    SubElement(channel, "description").text = "Explore the essence of storytelling with 'The InnerView Podcast'. Delve into personal journeys, uncovering the raw and real experiences that shape us."
+    SubElement(channel, "itunes:author").text = "InstaCast AI"
+    # Spotify does not use this tag, but it's added for completeness
+    SubElement(channel, "itunes:email").text = "ahmed@behairy.me"
+    SubElement(
+        channel, "managingEditor").text = "ahmed@behairy.me (Podcast Author)"
 
-    # Add podcast channel details (customize as needed)
-    ET.SubElement(channel, "title").text = "The Innerview"
-    ET.SubElement(channel, "description").text = "Your podcast description"
-    ET.SubElement(channel, "link").text = "https://instacast.live/innerview"
+    # Cover art according to Spotify's specifications
+    itunes_image = SubElement(channel, "itunes:image")
+    itunes_image.set(
+        "href", "https://instacast.live/dashy-assets/images/innerview-thumbnail.png")
 
-    dummy_episodes = [
-        {
-            "title": "Episode 1: The Beginning",
-            "description": "In our first episode, we explore the beginnings of our podcast journey.",
-            "published_date": datetime.now(),
-            "audio_file_url": "https://example.com/audio/episode1.mp3",
-        },
-        {
-            "title": "Episode 2: The Continuation",
-            "description": "In this episode, we dive deeper into our discussion topics.",
-            "published_date": datetime.now(),
-            "audio_file_url": "https://example.com/audio/episode2.mp3",
-        }
-    ]
+    # Example podcast episode
+    item = SubElement(channel, "item")
+    SubElement(item, "title").text = "Episode 1: How One Call Changed His Life"
+    SubElement(
+        item, "itunes:summary").text = "Meet Ahmed Behairy, a software engineer that delved into digital health after recieving one call that changed his life "
+    SubElement(
+        item, "description").text = "<![CDATA[<p>Episode Description</p>]]>"
+    SubElement(item, "pubDate").text = datetime.utcnow().strftime(
+        "%a, %d %b %Y %H:%M:%S +0000")
+    guid = SubElement(item, "guid")
+    guid.set("isPermaLink", "false")
+    guid.text = "https://example.com/path/to/episode"
+    enclosure = SubElement(item, "enclosure")
+    enclosure.set(
+        "url", "https://instacast.live/api/podcast/file?session_id=73b1bde7-4653-49d6-984b-cd99a3d40993&uuid=final_compilation")
+    enclosure.set("type", "audio/mpeg")
+    enclosure.set("length", "123456")  # File size in bytes
 
-    # Iterate over podcasts and their episodes to add to the RSS feed
-  # Iterate over the dummy episodes to add them to the RSS feed
-    for episode in dummy_episodes:
-        item = ET.SubElement(channel, "item")
-        ET.SubElement(item, "title").text = episode["title"]
-        ET.SubElement(item, "description").text = episode["description"]
-        ET.SubElement(item, "pubDate").text = episode["published_date"].strftime(
-            "%a, %d %b %Y %H:%M:%S GMT")
-        ET.SubElement(item, "guid").text = episode["audio_file_url"]
-        ET.SubElement(item, "enclosure",
-                      url=episode["audio_file_url"], type="audio/mpeg")
-
-    # Generate the RSS feed XML string
-    rss_feed = ET.tostring(rss, encoding="utf-8", method="xml")
-
+    rss_feed = tostring(rss, encoding="utf-8", method="xml")
     return Response(content=rss_feed, media_type="application/rss+xml")
