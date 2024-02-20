@@ -112,7 +112,7 @@ async def file(session_id: str, uuid: str):
         raise HTTPException(status_code=404, detail="File not found")
 
 
-@app.get("/rss", response_class=Response, include_in_schema=False)
+@app.get("/api/rss", response_class=Response, include_in_schema=False)
 async def generate_rss_feed():
     # Example function to fetch podcasts data - implement according to your storage
 
