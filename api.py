@@ -127,9 +127,10 @@ async def generate_rss_feed():
     SubElement(channel, "description").text = "Explore the essence of storytelling with 'The InnerView Podcast'. Delve into personal journeys, uncovering the raw and real experiences that shape us."
     SubElement(channel, "itunes:author").text = "InstaCast AI"
     # Spotify does not use this tag, but it's added for completeness
-    SubElement(channel, "itunes:email").text = "ahmed@behairy.me"
-    SubElement(
-        channel, "managingEditor").text = "ahmed@behairy.me (Podcast Author)"
+    # Correctly adding the email address under the itunes:owner tag
+    itunes_owner = SubElement(channel, "itunes:owner")
+    SubElement(itunes_owner, "itunes:name").text = "Podcast Author"
+    SubElement(itunes_owner, "itunes:email").text = "ahmed@behairy.me"
 
     # Cover art according to Spotify's specifications
     itunes_image = SubElement(channel, "itunes:image")
