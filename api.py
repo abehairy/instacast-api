@@ -208,46 +208,108 @@ async def file(session_id: str, uuid: str):
         raise HTTPException(status_code=404, detail="File not found")
 
 
-@app.get("/api/rss", response_class=Response, include_in_schema=False)
-async def generate_rss_feed():
+@app.get("/api/rss", response_class=Response)
+async def generate_rss_feed(podcast_id: str = "innerview"):
+    from redis_db import find_keys_by_pattern, get_episode_metadata_by_key
+    from xml.etree.ElementTree import Element, SubElement, tostring
+
+    # Assuming 'podcasts' is a list of dicts, each representing a podcast
+    from db import podcasts
+    podcast = next((p for p in podcasts if p['id'] == podcast_id), None)
+
+    if not podcast:
+        raise HTTPException(
+            status_code=404, detail=f"Podcast {podcast_id} not found.")
+
+    # Construct the search pattern for Redis keys based on podcast ID
+    search_pattern = f"{podcast_id}-*"
+
+    # Retrieve all matching keys for the podcast
+    keys = find_keys_by_pattern(search_pattern)
+
     rss = Element("rss", attrib={
         "version": "2.0",
         "xmlns:itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd",
     })
-
     channel = SubElement(rss, "channel")
-    SubElement(channel, "title").text = "The InnerView Podcast"
-    SubElement(channel, "link").text = "https://instacast.live/"
-    SubElement(channel, "description").text = "Explore the essence of storytelling with 'The InnerView Podcast'. Delve into personal journeys, uncovering the raw and real experiences that shape us."
-    SubElement(channel, "itunes:author").text = "InstaCast AI"
-    # Spotify does not use this tag, but it's added for completeness
-    # Correctly adding the email address under the itunes:owner tag
-    itunes_owner = SubElement(channel, "itunes:owner")
-    SubElement(itunes_owner, "itunes:name").text = "Podcast Author"
-    SubElement(itunes_owner, "itunes:email").text = "ahmed@behairy.me"
+    SubElement(channel, "title").text = podcast.get(
+        "title", "The InnerView Podcast")
+    SubElement(channel, "link").text = podcast.get(
+        "link", "https://instacast.live")
+    SubElement(channel, "description").text = podcast.get(
+        "description", "Podcast Description")
+    SubElement(channel, "itunes:author").text = podcast.get(
+        "author", "InstaCast AI")
 
-    # Cover art according to Spotify's specifications
-    itunes_image = SubElement(channel, "itunes:image")
-    itunes_image.set(
-        "href", "https://instacast.live/dashy-assets/images/innerview-thumbnail.png")
-
-    # Example podcast episode
-    item = SubElement(channel, "item")
-    SubElement(item, "title").text = "Episode 1: How One Call Changed His Life"
-    SubElement(
-        item, "itunes:summary").text = "Meet Ahmed Behairy, a software engineer that delved into digital health after recieving one call that changed his life "
-    SubElement(
-        item, "description").text = "<![CDATA[<p>Episode Description</p>]]>"
-    SubElement(item, "pubDate").text = datetime.utcnow().strftime(
-        "%a, %d %b %Y %H:%M:%S +0000")
-    guid = SubElement(item, "guid")
-    guid.set("isPermaLink", "false")
-    guid.text = "https://example.com/path/to/episode"
-    enclosure = SubElement(item, "enclosure")
-    enclosure.set(
-        "url", "https://instacast.live/api/podcast/file?session_id=73b1bde7-4653-49d6-984b-cd99a3d40993&uuid=final_compilation")
-    enclosure.set("type", "audio/mpeg")
-    enclosure.set("length", "123456")  # File size in bytes
+    # Generate RSS items for each episode
+    for key in keys:
+        episode = get_episode_metadata_by_key(key)
+        episode_id = key.split("-", 1)[1]
+        if episode:
+            item = SubElement(channel, "item")
+            SubElement(item, "title").text = episode.get(
+                "user", "Episode Title") + "| " + episode.get(
+                "title", "Episode Summary")
+            SubElement(item, "itunes:summary").text = episode.get(
+                "title", "Episode Summary")
+            SubElement(
+                item, "description").text = f"<![CDATA[{episode.get('description', 'Episode Description')}]>"
+            SubElement(item, "pubDate").text = episode.get(
+                "pubDate", datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000"))
+            guid = SubElement(item, "guid")
+            guid.set("isPermaLink", "false")
+            guid.text = episode.get("guid", "Unique Identifier")
+            enclosure = SubElement(item, "enclosure")
+            enclosure.set("url", episode.get(
+                "fileUrl", "https://instacast.live/api/podcast/file?session_id="+episode_id+"&uuid=final_compilation"))
+            enclosure.set("type", "audio/mpeg")
+            # File size in bytes
+            enclosure.set("length", str(episode.get("fileSize", "123456")))
 
     rss_feed = tostring(rss, encoding="utf-8", method="xml")
     return Response(content=rss_feed, media_type="application/rss+xml")
+
+
+# @app.get("/api/rss", response_class=Response, include_in_schema=False)
+# async def generate_rss_feed():
+#     rss = Element("rss", attrib={
+#         "version": "2.0",
+#         "xmlns:itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd",
+#     })
+
+#     channel = SubElement(rss, "channel")
+#     SubElement(channel, "title").text = "The InnerView Podcast"
+#     SubElement(channel, "link").text = "https://instacast.live/"
+#     SubElement(channel, "description").text = "Explore the essence of storytelling with 'The InnerView Podcast'. Delve into personal journeys, uncovering the raw and real experiences that shape us."
+#     SubElement(channel, "itunes:author").text = "InstaCast AI"
+#     # Spotify does not use this tag, but it's added for completeness
+#     # Correctly adding the email address under the itunes:owner tag
+#     itunes_owner = SubElement(channel, "itunes:owner")
+#     SubElement(itunes_owner, "itunes:name").text = "Podcast Author"
+#     SubElement(itunes_owner, "itunes:email").text = "ahmed@behairy.me"
+
+#     # Cover art according to Spotify's specifications
+#     itunes_image = SubElement(channel, "itunes:image")
+#     itunes_image.set(
+#         "href", "https://instacast.live/dashy-assets/images/innerview-thumbnail.png")
+
+#     # Example podcast episode
+#     item = SubElement(channel, "item")
+#     SubElement(item, "title").text = "Episode 1: How One Call Changed His Life"
+#     SubElement(
+#         item, "itunes:summary").text = "Meet Ahmed Behairy, a software engineer that delved into digital health after recieving one call that changed his life "
+#     SubElement(
+#         item, "description").text = "<![CDATA[<p>Episode Description</p>]]>"
+#     SubElement(item, "pubDate").text = datetime.utcnow().strftime(
+#         "%a, %d %b %Y %H:%M:%S +0000")
+#     guid = SubElement(item, "guid")
+#     guid.set("isPermaLink", "false")
+#     guid.text = "https://example.com/path/to/episode"
+#     enclosure = SubElement(item, "enclosure")
+#     enclosure.set(
+#         "url", "https://instacast.live/api/podcast/file?session_id=73b1bde7-4653-49d6-984b-cd99a3d40993&uuid=final_compilation")
+#     enclosure.set("type", "audio/mpeg")
+#     enclosure.set("length", "123456")  # File size in bytes
+
+#     rss_feed = tostring(rss, encoding="utf-8", method="xml")
+#     return Response(content=rss_feed, media_type="application/rss+xml")
