@@ -1,5 +1,6 @@
 
 
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.etree import ElementTree as ET
@@ -34,6 +35,14 @@ app.add_middleware(
 AUDIO_FILE_DIR = "audio_files"
 
 
+class EpisodeMetadata(BaseModel):
+    podcast_id: str
+    episode_id: str
+    title: str
+    user: str
+    email: EmailStr
+
+
 @app.get("/api/podcast/list")
 async def podcast_list():
     from db import podcasts
@@ -42,11 +51,17 @@ async def podcast_list():
 
 
 @app.get("/api/podcast/details")
-async def podcast_list(podcast_id: str,):
+async def podcast_details(podcast_id: str,):
     from db import podcasts
     podcast = next(
         (podcast for podcast in podcasts if podcast['id'] == podcast_id), None)
     return podcast
+
+
+@app.get("/api/podcast/episode")
+async def episode(podcast_id: str, episode_id: str,):
+    from redis_db import get_episode_metadata
+    return get_episode_metadata(podcast_id, episode_id)
 
 
 @app.post("/api/podcast/speak")
@@ -96,10 +111,89 @@ async def podcast_start(podcast_id):
     return {"session_id": session_id, "text": text, "voice_id": 'intro'}
 
 
-@app.get("/api/podcast/save")
-async def podcast_save(session_id):
-    studio.compile_audio_with_intro(session_id)
-    return {"session_id": session_id, "voice_id": 'final_compliation'}
+# @app.get("/api/podcast/save")
+# async def podcast_save(session_id):
+#     studio.compile_audio_with_intro(session_id)
+#     return {"session_id": session_id, "voice_id": 'final_compliation'}
+
+
+@app.get("/api/podcast/episodes_catalog")
+async def get_episodes_catalog():
+    from redis_db import find_keys_by_pattern, get_episode_metadata_by_key
+    from db import podcasts  # Assuming this imports a list of all podcasts
+
+    episodes_catalog = []
+
+    # Retrieve episodes for all podcasts
+    for podcast in podcasts:
+        # Construct the search pattern for Redis keys based on podcast ID
+        search_pattern = f"{podcast['id']}-*"
+
+        # Retrieve all matching keys for the current podcast
+        keys = find_keys_by_pattern(search_pattern)
+
+        for key in keys:
+            episode_metadata = get_episode_metadata_by_key(key)
+            if episode_metadata:
+                episode_metadata['episode_id'] = key.split("-", 1)[1]
+                # Merge episode metadata with podcast details to create a flat structure
+                # If you wish to include some podcast details, modify this line accordingly
+                flat_episode_data = {**podcast, **episode_metadata}
+                episodes_catalog.append(flat_episode_data)
+
+    return episodes_catalog
+
+
+@app.get("/api/podcast/episodes")
+async def get_episodes(podcast_id: str):
+    from redis_db import find_keys_by_pattern, get_episode_metadata_by_key
+    from db import podcasts  # Importing here to follow your original structure
+
+    # Retrieve the podcast object
+    podcast = next((pod for pod in podcasts if pod['id'] == podcast_id), None)
+
+    if podcast is None:
+        raise HTTPException(status_code=404, detail="Podcast not found.")
+
+    # Construct the search pattern for Redis keys
+    search_pattern = f"{podcast_id}-*"
+
+    # Retrieve all matching keys
+    keys = find_keys_by_pattern(search_pattern)
+
+    if not keys:
+        raise HTTPException(
+            status_code=404, detail="No episodes found for the given podcast ID.")
+
+    # Retrieve metadata for each key and merge it with the podcast data
+    episodes = []
+    for key in keys:
+        episode_metadata = get_episode_metadata_by_key(key)
+        if episode_metadata:
+            # Merge episode metadata with podcast details, creating a flat structure
+            flat_episode_data = {**podcast, **episode_metadata}
+            episodes.append(flat_episode_data)
+
+    return episodes
+
+
+@app.post("/api/podcast/save")
+async def podcast_save(episode_metadata: EpisodeMetadata):
+    from redis_db import save_episode_metadata
+    try:
+        # Assuming studio.compile_audio_with_intro is an async function
+        studio.compile_audio_with_intro(episode_metadata.episode_id)
+        # Save metadata to Redis using podcast_id and episode_id
+        save_episode_metadata(
+            episode_metadata.podcast_id,
+            episode_metadata.episode_id,
+            episode_metadata.title,
+            episode_metadata.user,
+            episode_metadata.email
+        )
+        return {"podcast_id": episode_metadata.podcast_id, "session_id": episode_metadata.episode_id, "voice_id": 'final_compilation'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get('/api/podcast/file')

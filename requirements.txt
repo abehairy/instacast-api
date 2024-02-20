@@ -12,3 +12,4 @@ openai
 redis
 pypdf
 python-multipart
+pydantic[email]
