@@ -1,9 +1,11 @@
 
 
+from xml.etree import ElementTree as ET
+from fastapi.responses import Response
 from fastapi import UploadFile, File
 import shutil
 from fastapi import FastAPI, HTTPException
-
+from datetime import datetime  # Import the datetime class from the datetime module
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -108,3 +110,48 @@ async def file(session_id: str, uuid: str):
     except FileNotFoundError:
         # If the file does not exist, return a 404 error
         raise HTTPException(status_code=404, detail="File not found")
+
+
+@app.get("/rss", response_class=Response, include_in_schema=False)
+async def generate_rss_feed():
+    # Example function to fetch podcasts data - implement according to your storage
+
+    rss = ET.Element("rss", version="2.0")
+    channel = ET.SubElement(rss, "channel")
+
+    # Add podcast channel details (customize as needed)
+    ET.SubElement(channel, "title").text = "The Innerview"
+    ET.SubElement(channel, "description").text = "Your podcast description"
+    ET.SubElement(channel, "link").text = "https://instacast.live/innerview"
+
+    dummy_episodes = [
+        {
+            "title": "Episode 1: The Beginning",
+            "description": "In our first episode, we explore the beginnings of our podcast journey.",
+            "published_date": datetime.now(),
+            "audio_file_url": "https://example.com/audio/episode1.mp3",
+        },
+        {
+            "title": "Episode 2: The Continuation",
+            "description": "In this episode, we dive deeper into our discussion topics.",
+            "published_date": datetime.now(),
+            "audio_file_url": "https://example.com/audio/episode2.mp3",
+        }
+    ]
+
+    # Iterate over podcasts and their episodes to add to the RSS feed
+  # Iterate over the dummy episodes to add them to the RSS feed
+    for episode in dummy_episodes:
+        item = ET.SubElement(channel, "item")
+        ET.SubElement(item, "title").text = episode["title"]
+        ET.SubElement(item, "description").text = episode["description"]
+        ET.SubElement(item, "pubDate").text = episode["published_date"].strftime(
+            "%a, %d %b %Y %H:%M:%S GMT")
+        ET.SubElement(item, "guid").text = episode["audio_file_url"]
+        ET.SubElement(item, "enclosure",
+                      url=episode["audio_file_url"], type="audio/mpeg")
+
+    # Generate the RSS feed XML string
+    rss_feed = ET.tostring(rss, encoding="utf-8", method="xml")
+
+    return Response(content=rss_feed, media_type="application/rss+xml")
