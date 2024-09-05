@@ -4,7 +4,9 @@ import asyncio
 import os
 import aiohttp
 import json
-openai_api_key = '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'
+from dotenv import load_dotenv
+load_dotenv()
+openai_api_key = os.getenv('OPENAI_API_KEY')
 
 
 def compile_audio_with_intro(session_id):
